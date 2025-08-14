@@ -1,0 +1,19 @@
+{
+  "name": "bot-resumo-whatsapp",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "concurrently -k -n PY,WA -c \"cyan,magenta\" \"python app.py\" \"node bridge.js\"",
+    "start:win": "concurrently -k -n PY,WA -c \"cyan,magenta\" \"py -3 app.py\" \"node bridge.js\""
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.18",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.0"
+  }
+}

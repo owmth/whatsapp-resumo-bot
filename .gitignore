@@ -1,0 +1,23 @@
+# --- Segredos / sessões / dados ---
+.env
+.env.*.local
+auth/
+data/
+cache/
+
+# --- Node ---
+node_modules/
+npm-debug.log*
+package-lock.json
+
+# --- Python ---
+__pycache__/
+*.pyc
+.venv/
+venv/
+pip-log.txt
+
+# --- IDE / SO ---
+.vscode/
+.DS_Store
+Thumbs.db
