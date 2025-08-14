@@ -1,77 +1,82 @@
-Bot de Resumo do WhatsApp (Python + Baileys)
+# 🤖 Bot de Resumo do WhatsApp (Python + Baileys)
 
-Resuma conversas de grupos do WhatsApp com linguagem natural, por comando no próprio grupo:
+Um bot que **resume conversas de grupos do WhatsApp** em linguagem natural.  
+Você chama no próprio grupo com `!resumo` e ele conta, em 1–2 parágrafos, o que rolou **hoje**.  
+Também tem `!status` para ver estatísticas do dia.
 
-!resumo → gera/atualiza o resumo narrativo do dia (00:00 → agora) somente daquele grupo
+---
 
-!status → mostra contagem de mensagens do dia, provedor de IA em uso e cobertura do último resumo
+## 🚀 Comandos disponíveis
 
-Funciona em múltiplos grupos: cada grupo mantém seu próprio histórico do dia e seu próprio resumo incremental.
+**`!resumo`**  
+Gera **ou atualiza** o resumo narrativo do dia (00:00 → agora) **apenas do grupo onde o comando foi enviado**.  
+O resumo é **incremental**: a cada chamada, ele processa só o que mudou desde o último resumo.
 
-✨ Principais recursos
+**`!status`**  
+Mostra:
+- Mensagens do dia (brutas e “normalizadas”)
+- Quantas mensagens já foram cobertas no último resumo
+- Provedor de IA em uso (`openai`, `gemini` ou `heuristic`)
 
-Multi‑grupos: o bot só responde no grupo onde o comando foi digitado
+---
 
-Resumo narrativo (1–2 parágrafos), mais humano (não lista bullets ou responsáveis)
+## ✨ Principais recursos
 
-Incremental: atualiza o resumo com o delta desde a última vez, economizando tokens
+- **Multi‑grupos**: cada grupo mantém histórico e resumo independentes
+- **Resumo narrativo humano** (1–2 parágrafos), sem bullets secos
+- **Incremental**: processa apenas o delta desde o último resumo
+- **Normalização**: remove ruído curto (“ok”, “kkk” etc.), agrega mensagens sequenciais do mesmo autor e faz dedup
+- **Armazenamento diário**: salva em `data/YYYY‑MM‑DD.jsonl` (append‑only)
+- **Rate‑limit**: limita chamadas de entrada/saída para evitar flood
+- **Segurança**: endpoints locais (`127.0.0.1`) e `ACCESS_TOKEN`
+- **Fallback inteligente**: OpenAI → Gemini → heurística local (sem custo)
 
-Normalização: remove ruído curto (“ok”, “kkk” etc.), agrega mensagens sequenciais do mesmo autor e deduplica
+---
 
-Armazenamento diário: grava mensagens em data/YYYY‑MM‑DD.jsonl (append‑only)
+## 🛠 Arquitetura
 
-Rate‑limit no envio e no recebimento para evitar flood
+```
+WhatsApp → Baileys (Node) → bridge.js → app.py (FastAPI)
+mensagens → /webhook (Python) → salva JSONL → IA gera resposta → /send (Node) → grupo
+```
 
-Segurança: endpoints locais (127.0.0.1) + ACCESS_TOKEN simples
+- **bridge.js**: conecta ao WhatsApp (Baileys), repassa **todas** as mensagens de grupos ao Python e expõe `/send` para o app responder no grupo certo.  
+- **app.py**: recebe as mensagens, grava em JSONL por dia e cuida dos comandos `!resumo` / `!status`.
 
-Fallback de IA: OpenAI → Gemini → heurístico local (se APIs falharem)
+---
 
-🧱 Arquitetura (2 processos)
-WhatsApp <—Baileys—> bridge.js (Node)  <HTTP local>  app.py (FastAPI)
-         mensagens → /webhook (Python) → salva JSONL → !resumo gera resposta → /send (Node) → grupo
+## ✅ Requisitos
 
+- Node.js **18+**
+- Python **3.10+**
+- WhatsApp no celular para parear (QR ou código)
+- Windows, macOS ou Linux
 
-bridge.js: conecta ao WhatsApp Web (Baileys), repassa todas as mensagens de grupos ao Python e expõe /send para o Python responder no grupo certo.
+> Dica: se puder, use um **número secundário** para o bot.
 
-app.py: recebe cada mensagem via /webhook, salva em JSONL por dia, e processa !resumo / !status.
+---
 
-✅ Requisitos
+## 📦 Instalação
 
-Windows ou Linux/macOS
-
-Node.js 18+
-
-Python 3.10+
-
-Uma conta do WhatsApp (no celular) para parear o “aparelho” do bot (QR ou código)
-
-Dica: use um número secundário se não quiser vincular ao seu WhatsApp principal.
-
-📦 Instalação
-
-Clone e entre na pasta
-
-git clone https://github.com/<seuuser>/<seu-repo>.git
+### 1) Clonar o repositório
+```bash
+git clone https://github.com/<seu-usuario>/<seu-repo>.git
 cd <seu-repo>
+```
 
-
-Dependências Node
-
+### 2) Instalar dependências
+```bash
+# Node (bridge)
 npm i
 
-
-Dependências Python
-
+# Python (API)
 pip install -r requirements.txt
+```
 
+### 3) Configurar variáveis de ambiente
+Crie um arquivo **.env** na raiz (baseado no `.env.example`):
 
-Crie seu .env (use o exemplo)
-
-copy .env.example .env   # Windows (PowerShell: cp .env.example .env)
-
-
-Abra .env e configure:
-
+```env
 # Node / bridge.js
 WEBHOOK_URL=http://127.0.0.1:8000/webhook
 PORT=3000
@@ -80,194 +85,128 @@ ACCESS_TOKEN=um-token-forte
 
 # Python / app.py
 BRIDGE_URL=http://127.0.0.1:3000
-ACCESS_TOKEN=um-token-forte
-OPENAI_API_KEY=         # opcional
+ACCESS_TOKEN=um-token-forte            # igual ao do bridge
+OPENAI_API_KEY=                        # opcional
 OPENAI_MODEL=gpt-4o-mini
-GEMINI_API_KEY=         # opcional (fallback gratuito do Google)
+GEMINI_API_KEY=                        # opcional
+```
 
+> O `ACCESS_TOKEN` **deve ser o mesmo** no Node e no Python.
 
-IMPORTANTE: ACCESS_TOKEN deve ser o mesmo no Node e no Python.
+---
 
-▶️ Como rodar
+## ▶️ Como rodar
 
-Em dois terminais:
+Em **dois terminais** (na raiz do projeto):
 
-Terminal 1 (Python)
-
+**Terminal 1 – API Python**  
+```bash
 uvicorn app:app --host 127.0.0.1 --port 8000
+```
 
-
-Terminal 2 (Node)
-
+**Terminal 2 – Bridge Node**  
+```bash
 node bridge.js
+```
+- Na primeira execução, aparecerá um **QR code** (ou **pairing code** se você definiu `PAIR_CODE`).  
+- No celular: **WhatsApp → Aparelhos conectados → Conectar um aparelho**.
 
+Quando o terminal mostrar `✅ Conectado`, o bot está pronto.
 
-Na primeira vez, o terminal vai mostrar um QR code (ou um pairing code se você setou PAIR_CODE).
+---
 
-No celular: WhatsApp → Aparelhos conectados → Conectar um aparelho e siga as instruções.
+## 💬 Uso no WhatsApp
 
-Quando aparecer ✅ Conectado, o bot está pronto.
+No **grupo** em que o bot está presente, envie:
 
-💬 Como usar no WhatsApp
+- `!resumo` → gera/atualiza o **resumo narrativo** do dia daquele grupo
+- `!status` → mostra estatísticas (contagem, provedor ativo, cobertura, etc.)
 
-No grupo em que o bot está presente, envie:
+> Observação: este modo não “busca histórico para trás”. Ele resume o que foi gravado **desde que o bot está ligado** hoje. Para pegar o dia todo, deixe o bot rodando continuamente.
 
-!resumo
-Gera (ou atualiza) o resumo narrativo do dia, com linguagem natural, sem bullets.
-A cada novo !resumo, o bot processa só o delta desde o último resumo (incremental).
+---
 
-!status
-Mostra:
+## 🔐 Segurança
 
-total de mensagens do dia
+- **Bind local**: os serviços escutam apenas em `127.0.0.1` (não exposto na rede)
+- **Token obrigatório**: o Python chama o `/send` do bridge com `x-access-token: ACCESS_TOKEN`
+- **Sessão do WhatsApp**: fica em `auth/` → **não compartilhe**. Para revogar: remova o aparelho no WhatsApp e apague `auth/`.
 
-total “normalizado” (após limpeza e agregação)
+### .gitignore recomendado
+```gitignore
+# Segredos / sessões / dados
+.env
+auth/
+data/
+cache/
 
-quantas mensagens já foram cobertas no último resumo
+# Node
+node_modules/
+npm-debug.log*
+package-lock.json
 
-qual provedor de IA está ativo (openai, gemini ou heuristic)
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
 
-🔐 Segurança
+# IDE / SO
+.vscode/
+.DS_Store
+Thumbs.db
+```
 
-Bind local: o bridge escuta em 127.0.0.1 (não expõe na rede).
+---
 
-Token: todas as chamadas Python → bridge exigem cabeçalho x-access-token com o valor de ACCESS_TOKEN.
+## 🧩 Personalização rápida
 
-Criptografia: o WhatsApp é E2EE. A pasta auth/ contém a sessão do seu aparelho: não compartilhe.
+- **Tom do resumo**: edite os prompts em `app.py` (`_summ_openai` / `_summ_gemini`) – “casual”, “executivo”, etc.
+- **Limpeza de ruído**: ajuste o set `noise` em `_normalize`.
+- **Janela de dedup**: altere o tamanho de `merged[-300:]` conforme a atividade do grupo.
+- **Rate‑limit**: mude os buckets no `bridge.js` (`/to-webhook`, `/send`) e no `app.py` (`webhook`, `summary`).
 
-.gitignore: já ignora .env, auth/, data/ e cache/.
+---
 
-Para revogar a sessão:
-WhatsApp (celular) → Aparelhos conectados → remova o “Ubuntu/Chrome”, e apague a pasta auth/.
+## 🩺 Solução de problemas
 
-📂 Estrutura do projeto
+- **Bridge “parado” no console**: normal; ele só imprime algo quando chegam mensagens/eventos.
+- **Python não recebe nada**: confira `WEBHOOK_URL` e o `ACCESS_TOKEN` em ambos os lados.
+- **429/Quota na OpenAI**: o app usa Gemini (se houver) e, na ausência, um heurístico local (sempre funciona).
+- **Desconectou / “device_removed”**: apague `auth/` e pareie de novo.
+
+---
+
+## 📂 Estrutura do projeto
+
+```
 .
 ├── app.py               # FastAPI (webhook, resumo, status)
-├── bridge.js            # Baileys (WhatsApp Web) + HTTP bridge
-├── requirements.txt     # deps Python
-├── package.json         # deps Node
-├── .env.example         # modelo de variáveis
-├── .gitignore           # segurança (não subir segredos/sessões/dados)
-├── data/                # JSONL do dia (gerado em runtime)
-└── cache/               # cache incremental por grupo (gerado em runtime)
+├── bridge.js            # WhatsApp bridge (Baileys)
+├── requirements.txt     # Dependências Python
+├── package.json         # Dependências Node
+├── .env.example         # Modelo de variáveis
+├── .gitignore           # Segurança (ignora .env, auth/, data/, cache/)
+├── data/                # JSONL diário (gerado em runtime)
+└── cache/               # Cache incremental por grupo (gerado em runtime)
+```
 
-🧠 Como funciona o resumo
+---
 
-O bridge envia todas as mensagens de grupos para POST /webhook (Python).
+## 📜 Licença
 
-O app salva cada mensagem do dia em data/YYYY‑MM‑DD.jsonl (uma linha por mensagem).
+Este projeto é distribuído sob a licença **MIT**.  
+Use, modifique e compartilhe com crédito. :)
 
-Ao receber !resumo, o app:
+---
 
-carrega as mensagens de hoje do grupo que pediu,
+## 🙋 FAQ
 
-normaliza (remove ruído, junta mensagens sequenciais do mesmo autor, dedup),
+**Funciona em vários grupos?**  
+Sim. O bridge envia mensagens de todos os grupos e o app responde **somente no grupo que pediu**.
 
-aplica resumo incremental:
+**Atende mensagens privadas (1:1)?**  
+Não. O filtro atual considera apenas JIDs terminando com `@g.us` (grupos). Pode ser adaptado facilmente.
 
-se for o primeiro do dia, resume tudo;
-
-se já houver um resumo, processa só o delta e atualiza a narrativa.
-
-O app envia a resposta via POST /send (bridge), que publica no grupo.
-
-Fallback de IA:
-
-Primeiro tenta OpenAI (se OPENAI_API_KEY configurada),
-
-depois Gemini (se GEMINI_API_KEY configurada),
-
-por fim um heurístico local (sem custo).
-
-🛠️ Personalização rápida
-
-Tom do resumo: ajuste os prompts em app.py (_summ_openai, _summ_gemini) para “casual”, “executivo” etc.
-
-Limpeza de ruído: edite o set noise em _normalize.
-
-Tamanho do delta: a janela de deduplicação está em merged[-300:] — aumente/diminua conforme a atividade do grupo.
-
-Rate‑limit:
-
-bridge.js: buckets '/to-webhook' e '/send'
-
-app.py: buckets 'webhook' e 'summary'
-
-🧪 Testes rápidos (via cURL)
-
-Enviar uma mensagem manualmente pelo bridge (substitua <CHAT_ID> e o token):
-
-curl -X POST "http://127.0.0.1:3000/send" ^
-  -H "Content-Type: application/json" ^
-  -H "x-access-token: um-token-forte" ^
-  -d "{\"chatId\":\"<CHAT_ID>@g.us\",\"text\":\"mensagem de teste\"}"
-
-🩺 Solução de problemas
-
-No grupo aparece “Resumo indisponível”
-Verifique se existe chave configurada e saldo:
-
-OPENAI_API_KEY válida? Se der 429/quota, o app cai no Gemini (se houver) ou no heurístico.
-
-GEMINI_API_KEY válida? Se falhar, cai no heurístico.
-
-Mesmo sem chaves, o resumo sai (mais simples).
-
-O bridge mostra “opened connection to WA” e fica parado
-Isso é normal. Ele só imprime eventos quando chegam mensagens.
-Garanta que o Python está rodando, e envie mensagens no grupo para ver tráfego.
-
-O Python não recebe nada
-
-Confirme WEBHOOK_URL=http://127.0.0.1:8000/webhook no .env do Node
-
-ACCESS_TOKEN é o mesmo nos dois lados?
-
-Firewall não bloqueia 127.0.0.1:3000/8000?
-
-Rate‑limit
-Se aparecer rate_limited, espere 1–2 segundos e tente de novo.
-Ajuste os buckets se o grupo é muito ativo.
-
-Sessão perdida / desconectou
-
-Remova auth/ e pareie novamente (QR ou PAIR_CODE).
-
-No celular, “Aparelhos conectados” deve mostrar o device “Ubuntu/Chrome”.
-
-Backfill (histórico antes de ligar o bot)
-A versão atual está no modo “gravar ao chegar” (sem backfill).
-Para capturar mensagens anteriores ao start, deixe o bot ligado desde cedo (ou meça a troca de pacote Baileys que suporte backfill).
-
-🔒 .gitignore e segredos
-
-O repositório inclui um .gitignore que evita vazamento de:
-
-.env (chaves e tokens)
-
-auth/ (sessão do WhatsApp)
-
-data/ (mensagens do dia)
-
-cache/ (resumo incremental)
-
-Use o .env.example como referência para outras pessoas configurarem localmente.
-
-📜 Licença
-
-Escolha a licença que preferir (ex.: MIT).
-Crie um arquivo LICENSE na raiz do projeto.
-
-🙋 FAQ
-
-Posso usar em mais de um grupo?
-Sim. O bridge manda mensagens de todos os grupos onde o número está. O !resumo e !status funcionam por grupo.
-
-Ele responde mensagens privadas (1:1)?
-Não — está filtrando para @g.us (grupos). Pode ser adaptado.
-
-Dá para agendar um resumo automático todo dia às 20h?
-Sim — adicione APScheduler no app.py e chame summarize_incremental para cada grupo desejado.
-
-Onde ficam os dados?
-Em data/YYYY‑MM‑DD.jsonl (append‑only) e cache/ (resumo incremental por grupo/dia).
+**Dá pra agendar um resumo diário automático?**  
+Sim. Adicione APScheduler no `app.py` e chame `summarize_incremental()` no horário desejado.
